@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "VashtyNime",
+    "slug": "vashtynime-frontend",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "android": {
+      "package": "com.vashtynime.app",
+      "versionCode": 1,
+      "permissions": [
+        "INTERNET"
+      ]
+    },
+    "extra": {
+      "eas": {
+        "projectId": "075bf1f5-0de9-4145-9426-e04c913d6be7"
+      }
+    },
+    "owner": "ilhamelvara",
+    "plugins": [
+      "react-native-video"
+    ]
+  }
+}
