@@ -1,0 +1,42 @@
+# VashtyNime Backend Configuration
+# File: c:\VashtyNime\backend\src\main\resources\application.yml
+
+server:
+  port: 8080
+
+
+spring:
+  application:
+    name: vashtynime-api
+
+  # Database configuration
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://aws-1-ap-south-1.pooler.supabase.com:5432/postgres}
+    username: ${DATABASE_USERNAME:postgres.lgkltgjtnhrifgovcxey}
+    password: ${DATABASE_PASSWORD:R*W@XfD4%,_#3%u}
+    driver-class-name: org.postgresql.Driver
+
+  # JPA / Hibernate configuration
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  # Redis cache settings
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 6000ms
+
+# App-specific security configuration (simulated Firebase verification keys)
+app:
+  security:
+    jwt:
+      secret: "zQWn2t6r9D3gY7k1m0p8s5v4x6z9B2e5H8k1m4p7s9v0y2B5E8H1K4M7Q9T" # 256-bit secure secret key
+      expiration-ms: 86400000 # 1 day expiration

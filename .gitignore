@@ -1,0 +1,56 @@
+# Dependency directories
+node_modules/
+**/node_modules/
+jspm_packages/
+
+# Next.js build output
+.next/
+**/ .next/
+out/
+build/
+
+# Maven build output
+target/
+**/target/
+*.jar
+*.war
+*.ear
+
+# Expo / React Native
+.expo/
+**/ .expo/
+dist/
+web-build/
+
+# IDEs and editors
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.classpath
+.project
+.settings/
+.factorypath
+
+# OS files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# Log files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.prod.local
