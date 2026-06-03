@@ -58,15 +58,6 @@ export default function LoginScreen({ navigation }: any) {
     }
   };
 
-  const handleBypass = () => {
-    const mockUser = {
-      id: 'mock_user_123',
-      username: 'NimeWatcher',
-      email: 'watcher@vashtynime.com',
-      photo: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150', // Default avatar
-    };
-    login(mockUser, 'mock_jwt_token_xyz');
-  };
 
   const isLoginMode = mode === 'login';
 
@@ -159,17 +150,6 @@ export default function LoginScreen({ navigation }: any) {
           </Text>
         </TouchableOpacity>
 
-        {/* Divider */}
-        <View style={styles.divider}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>atau</Text>
-          <View style={styles.dividerLine} />
-        </View>
-
-        {/* Dev Bypass */}
-        <TouchableOpacity style={styles.bypassButton} onPress={handleBypass}>
-          <Text style={styles.bypassText}>Bypass Login (Dev Mode)</Text>
-        </TouchableOpacity>
       </View>
     </View>
   );

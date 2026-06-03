@@ -2,6 +2,7 @@ package com.vashtynime.api.controller;
 
 import com.vashtynime.api.dto.EpisodeDTO;
 import com.vashtynime.api.entity.Episode;
+import com.vashtynime.api.entity.User;
 import com.vashtynime.api.service.EpisodeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -39,6 +40,20 @@ public class EpisodeController {
         String userId = getAuthenticatedUserId();
         EpisodeDTO episode = episodeService.getEpisodeById(id, userId);
         return ResponseEntity.ok(episode);
+    }
+
+    @PostMapping("/{id}/unlock")
+    public ResponseEntity<?> unlockEpisode(@PathVariable UUID id) {
+        String userId = getAuthenticatedUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).body(java.util.Map.of("message", "User tidak terautentikasi"));
+        }
+        try {
+            User updatedUser = episodeService.unlockEpisode(userId, id);
+            return ResponseEntity.ok(updatedUser);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("message", e.getMessage()));
+        }
     }
 
     // Admin endpoint

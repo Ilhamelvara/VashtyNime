@@ -6,14 +6,17 @@ import com.vashtynime.api.entity.Anime;
 import com.vashtynime.api.entity.Episode;
 import com.vashtynime.api.entity.History;
 import com.vashtynime.api.entity.User;
+import com.vashtynime.api.entity.EpisodeUnlock;
 import com.vashtynime.api.repository.AnimeRepository;
 import com.vashtynime.api.repository.EpisodeRepository;
 import com.vashtynime.api.repository.HistoryRepository;
 import com.vashtynime.api.repository.UserRepository;
+import com.vashtynime.api.repository.EpisodeUnlockRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -33,6 +36,9 @@ public class EpisodeService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private EpisodeUnlockRepository episodeUnlockRepository;
 
     @Transactional(readOnly = true)
     public List<EpisodeDTO> getEpisodesByAnime(UUID animeId, String userId) {
@@ -68,13 +74,29 @@ public class EpisodeService {
         Optional<History> existingHistory = historyRepository.findByUserIdAndEpisodeId(userId, request.getEpisodeId());
 
         History history;
+        boolean justFinished = false;
         if (existingHistory.isPresent()) {
             history = existingHistory.get();
-            history.setProgress(request.getProgress());
+            int oldProgress = history.getProgress();
+            int newProgress = request.getProgress();
+            history.setProgress(newProgress);
+            
+            int ninetyPercent = (int) (episode.getDuration() * 0.9);
+            if (oldProgress < ninetyPercent && newProgress >= ninetyPercent) {
+                justFinished = true;
+            }
         } else {
             history = new History(user, episode, request.getProgress());
+            int ninetyPercent = (int) (episode.getDuration() * 0.9);
+            if (request.getProgress() >= ninetyPercent) {
+                justFinished = true;
+            }
         }
         historyRepository.save(history);
+
+        if (justFinished) {
+            addXpToUser(user, 20);
+        }
     }
 
     @Transactional(readOnly = true)
@@ -97,12 +119,76 @@ public class EpisodeService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional
+    public User unlockEpisode(String userId, UUID episodeId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Pengguna tidak ditemukan"));
+        Episode episode = episodeRepository.findById(episodeId)
+                .orElseThrow(() -> new RuntimeException("Episode tidak ditemukan"));
+
+        if (Boolean.TRUE.equals(user.getPremium())) {
+            return user;
+        }
+
+        if (episodeUnlockRepository.existsByUserIdAndEpisodeId(userId, episodeId)) {
+            return user;
+        }
+
+        user.regenerateKeysIfNeeded();
+
+        if (user.getKeysCount() == null || user.getKeysCount() <= 0) {
+            throw new RuntimeException("Kunci Anda habis! Silakan tunggu 1 menit untuk mendapatkan 2 kunci gratis.");
+        }
+
+        int oldKeys = user.getKeysCount();
+        user.setKeysCount(oldKeys - 1);
+
+        if (oldKeys >= 10) {
+            user.setLastKeyRegenTime(LocalDateTime.now());
+        }
+
+        EpisodeUnlock unlock = new EpisodeUnlock(user, episode);
+        episodeUnlockRepository.save(unlock);
+
+        addXpToUser(user, 10);
+
+        return userRepository.save(user);
+    }
+
+    private void addXpToUser(User user, int amount) {
+        if (user.getXp() == null) user.setXp(0);
+        if (user.getLevel() == null) user.setLevel(1);
+
+        int newXp = user.getXp() + amount;
+        int level = user.getLevel();
+
+        while (newXp >= 100) {
+            newXp -= 100;
+            level++;
+        }
+
+        user.setXp(newXp);
+        user.setLevel(level);
+        userRepository.save(user);
+    }
+
     private EpisodeDTO convertToDTO(Episode episode, String userId) {
         Integer watchProgress = 0;
+        Boolean isUnlocked = false;
         if (userId != null) {
             Optional<History> history = historyRepository.findByUserIdAndEpisodeId(userId, episode.getId());
             if (history.isPresent()) {
                 watchProgress = history.get().getProgress();
+            }
+            
+            Optional<User> userOpt = userRepository.findById(userId);
+            if (userOpt.isPresent()) {
+                User user = userOpt.get();
+                if (Boolean.TRUE.equals(user.getPremium())) {
+                    isUnlocked = true;
+                } else {
+                    isUnlocked = episodeUnlockRepository.existsByUserIdAndEpisodeId(userId, episode.getId());
+                }
             }
         }
         return new EpisodeDTO(
@@ -112,7 +198,8 @@ public class EpisodeService {
                 episode.getVideoUrl(),
                 episode.getDuration(),
                 episode.getThumbnail(),
-                watchProgress
+                watchProgress,
+                isUnlocked
         );
     }
 }

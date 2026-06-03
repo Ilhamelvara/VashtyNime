@@ -22,6 +22,18 @@ public class AuthController {
         return (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     }
 
+    // Get current authenticated user profile
+    @GetMapping("/me")
+    public ResponseEntity<User> getMe() {
+        try {
+            String userId = getRequiredUserId();
+            User user = authService.resolveUser(userId);
+            return ResponseEntity.ok(user);
+        } catch (Exception e) {
+            return ResponseEntity.status(401).build();
+        }
+    }
+
     // Register or login with Google/Firebase token
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) {

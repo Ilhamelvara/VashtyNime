@@ -10,10 +10,11 @@ public class EpisodeDTO {
     private Integer duration;
     private String thumbnail;
     private Integer watchProgress; // In seconds, from user's history if available
+    private Boolean isUnlocked = false;
 
     public EpisodeDTO() {}
 
-    public EpisodeDTO(UUID id, UUID animeId, Integer episodeNumber, String videoUrl, Integer duration, String thumbnail, Integer watchProgress) {
+    public EpisodeDTO(UUID id, UUID animeId, Integer episodeNumber, String videoUrl, Integer duration, String thumbnail, Integer watchProgress, Boolean isUnlocked) {
         this.id = id;
         this.animeId = animeId;
         this.episodeNumber = episodeNumber;
@@ -21,6 +22,7 @@ public class EpisodeDTO {
         this.duration = duration;
         this.thumbnail = thumbnail;
         this.watchProgress = watchProgress;
+        this.isUnlocked = isUnlocked;
     }
 
     // Getters and Setters
@@ -78,5 +80,13 @@ public class EpisodeDTO {
 
     public void setWatchProgress(Integer watchProgress) {
         this.watchProgress = watchProgress;
+    }
+
+    public Boolean getIsUnlocked() {
+        return isUnlocked;
+    }
+
+    public void setIsUnlocked(Boolean isUnlocked) {
+        this.isUnlocked = isUnlocked;
     }
 }

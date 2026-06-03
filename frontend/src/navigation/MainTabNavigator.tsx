@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Dimensions } from 'react-native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,7 +12,7 @@ import ChatScreen from '../screens/ChatScreen';
 const Tab = createMaterialTopTabNavigator();
 const { width } = Dimensions.get('window');
 
-function CustomTabBar({ state, descriptors, navigation }: any) {
+function CustomTabBar({ state, descriptors, navigation, setAnimationEnabled }: any) {
   return (
     <View style={styles.navBarContainer}>
       <View style={styles.navBar}>
@@ -54,7 +54,11 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
             });
 
             if (!isFocused && !event.defaultPrevented) {
+              setAnimationEnabled(false);
               navigation.navigate({ name: route.name, merge: true });
+              setTimeout(() => {
+                setAnimationEnabled(true);
+              }, 50);
             }
           };
 
@@ -88,13 +92,15 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
 }
 
 export default function MainTabNavigator() {
+  const [animationEnabled, setAnimationEnabled] = useState(true);
+
   return (
     <Tab.Navigator
-      tabBar={(props) => <CustomTabBar {...props} />}
+      tabBar={(props) => <CustomTabBar {...props} setAnimationEnabled={setAnimationEnabled} />}
       tabBarPosition="bottom"
       screenOptions={{
         swipeEnabled: true,
-        animationEnabled: true,
+        animationEnabled: animationEnabled,
       }}
     >
       <Tab.Screen name="Home" component={HomeScreen} />

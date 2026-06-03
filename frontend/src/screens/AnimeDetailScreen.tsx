@@ -7,6 +7,7 @@ import apiClient from '../services/api';
 export default function AnimeDetailScreen({ route, navigation }: any) {
   const { animeId } = route.params;
   const user = useAuthStore((state) => state.user);
+  const updateUser = useAuthStore((state) => state.updateUser);
   const [anime, setAnime] = useState<any>(null);
   const [episodes, setEpisodes] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -28,10 +29,9 @@ export default function AnimeDetailScreen({ route, navigation }: any) {
       if (episodesRes && episodesRes.data) {
         setEpisodes(episodesRes.data);
       }
-
+      
       // Fallback Mock Data if no server or empty DB
       if (!animeRes || !animeRes.data) {
-        // Find which mock anime was requested
         const mockAnimeList = [
           {
             id: '1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d',
@@ -72,7 +72,6 @@ export default function AnimeDetailScreen({ route, navigation }: any) {
         setAnime(selectedAnime);
         setIsBookmarked(selectedAnime.isBookmarked);
 
-        // Populate mock episodes
         setEpisodes([
           {
             id: 'ep1',
@@ -81,7 +80,8 @@ export default function AnimeDetailScreen({ route, navigation }: any) {
             videoUrl: 'https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8',
             duration: 734,
             thumbnail: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400',
-            watchProgress: 120
+            watchProgress: 120,
+            isUnlocked: true
           },
           {
             id: 'ep2',
@@ -90,7 +90,8 @@ export default function AnimeDetailScreen({ route, navigation }: any) {
             videoUrl: 'https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8',
             duration: 840,
             thumbnail: 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?w=400',
-            watchProgress: 0
+            watchProgress: 0,
+            isUnlocked: false
           }
         ]);
       }
@@ -104,7 +105,53 @@ export default function AnimeDetailScreen({ route, navigation }: any) {
 
   useEffect(() => {
     fetchDetail();
+    // Sync profile to get correct keys count
+    const syncProfile = async () => {
+      try {
+        const response = await apiClient.get('/auth/me');
+        updateUser(response.data);
+      } catch (err) {
+        // Safe to ignore on connection error
+      }
+    };
+    syncProfile();
   }, [animeId]);
+
+  const handleUnlockEpisode = async (episodeId: string, episodeNumber: number) => {
+    if (!user?.premium && (user?.keysCount === undefined || user?.keysCount <= 0)) {
+      Alert.alert(
+        'Kunci Habis 🔑',
+        'Kunci Anda habis! Silakan tunggu 1 menit untuk mendapatkan 2 kunci gratis secara otomatis, atau aktifkan Premium untuk kunci unlimited.',
+        [
+          { text: 'Batal', style: 'cancel' },
+          { text: 'Ke Profil (Premium)', onPress: () => navigation.navigate('Profile') }
+        ]
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Buka Episode 🔑',
+      `Gunakan 1 kunci untuk membuka Episode ${episodeNumber}?`,
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Buka',
+          onPress: async () => {
+            try {
+              const response = await apiClient.post(`/episode/${episodeId}/unlock`);
+              updateUser(response.data);
+              Alert.alert('Sukses', 'Episode berhasil dibuka!');
+              fetchDetail();
+            } catch (err: any) {
+              const errMsg = err.response?.data?.message || 'Gagal membuka episode';
+              Alert.alert('Gagal', errMsg);
+            }
+          }
+        }
+      ]
+    );
+  };
 
   const toggleBookmark = async () => {
     try {
@@ -118,7 +165,6 @@ export default function AnimeDetailScreen({ route, navigation }: any) {
         Alert.alert('Bookmark', 'Ditambahkan ke bookmark.');
       }
     } catch (err) {
-      // Mock toggling state on connection error
       setIsBookmarked(!isBookmarked);
       Alert.alert('Bookmark (Local Mode)', isBookmarked ? 'Dihapus dari bookmark' : 'Ditambahkan ke bookmark');
     }
@@ -127,21 +173,16 @@ export default function AnimeDetailScreen({ route, navigation }: any) {
   const renderEpisodeItem = ({ item }: { item: any }) => {
     const isWatched = item.watchProgress > 0;
     const progressPercent = item.duration > 0 ? (item.watchProgress / item.duration) * 100 : 0;
-    const isLocked = anime?.premium && !user?.premium;
+    
+    // Episode is locked if user is NOT premium and episode is NOT unlocked
+    const isLocked = !user?.premium && !item.isUnlocked;
 
     return (
       <TouchableOpacity 
         style={[styles.episodeCard, isLocked && styles.episodeCardLocked]}
         onPress={() => {
           if (isLocked) {
-            Alert.alert(
-              'Konten Premium 🌟',
-              'Episode ini hanya dapat ditonton oleh member Premium. Silakan aktifkan Premium Anda di halaman Profil terlebih dahulu.',
-              [
-                { text: 'Batal', style: 'cancel' },
-                { text: 'Ke Profil', onPress: () => navigation.navigate('Profile') }
-              ]
-            );
+            handleUnlockEpisode(item.id, item.episodeNumber);
             return;
           }
           navigation.navigate('VideoPlayer', {
@@ -157,6 +198,11 @@ export default function AnimeDetailScreen({ route, navigation }: any) {
           {isWatched && (
             <View style={styles.progressContainer}>
               <View style={[styles.progressBar, { width: `${progressPercent}%` }]} />
+            </View>
+          )}
+          {isLocked && (
+            <View style={styles.lockedOverlay}>
+              <Ionicons name="lock-closed" size={20} color="#ffffff" />
             </View>
           )}
         </View>
@@ -247,7 +293,15 @@ export default function AnimeDetailScreen({ route, navigation }: any) {
         <Text style={styles.sectionHeader}>Sinopsis</Text>
         <Text style={styles.descriptionText}>{anime.description}</Text>
 
-        <Text style={styles.sectionHeader}>Daftar Episode ({episodes.length})</Text>
+        <View style={styles.episodeHeaderRow}>
+          <Text style={[styles.sectionHeader, { marginTop: 0, marginBottom: 0 }]}>Daftar Episode ({episodes.length})</Text>
+          <View style={styles.keysIndicator}>
+            <Ionicons name="key" size={14} color="#f59e0b" style={{ marginRight: 4 }} />
+            <Text style={styles.keysIndicatorText}>
+              Kunci: {user?.premium ? 'Unlimited ♾️' : `${user?.keysCount ?? 10}`}
+            </Text>
+          </View>
+        </View>
         {episodes.length === 0 ? (
           <Text style={styles.noEpisodesText}>Belum ada episode tersedia untuk anime ini.</Text>
         ) : (
@@ -487,5 +541,33 @@ const styles = StyleSheet.create({
     color: '#0b0f19',
     fontSize: 10,
     fontWeight: '800',
+  },
+  episodeHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 24,
+    marginBottom: 10,
+  },
+  keysIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+  },
+  keysIndicatorText: {
+    color: '#f59e0b',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  lockedOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuthStore } from './src/store/authStore';
+import apiClient from './src/services/api';
 
 // Screens
 import LoginScreen from './src/screens/LoginScreen';
@@ -21,6 +23,39 @@ const Stack = createNativeStackNavigator();
 
 export default function App() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const token = useAuthStore((state) => state.token);
+  const logout = useAuthStore((state) => state.logout);
+  const updateUser = useAuthStore((state) => state.updateUser);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  useEffect(() => {
+    const syncProfile = async () => {
+      if (isAuthenticated && token) {
+        setIsSyncing(true);
+        try {
+          const response = await apiClient.get('/auth/me');
+          updateUser(response.data);
+        } catch (err: any) {
+          console.warn('Gagal sinkronisasi data profil pada startup', err);
+          if (err.response?.status === 401) {
+            logout();
+          }
+        } finally {
+          setIsSyncing(false);
+        }
+      }
+    };
+    
+    syncProfile();
+  }, [isAuthenticated, token]);
+
+  if (isSyncing) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0b0f19', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#6366f1" />
+      </View>
+    );
+  }
 
   return (
     <NavigationContainer>

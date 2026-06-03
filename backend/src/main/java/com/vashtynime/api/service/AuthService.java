@@ -46,6 +46,7 @@ public class AuthService {
             user = existingUser.get();
             if (request.getUsername() != null) user.setUsername(username);
             if (request.getPhoto() != null) user.setPhoto(photo);
+            user.regenerateKeysIfNeeded();
             user = userRepository.save(user);
         } else {
             user = new User(firebaseUid, username, email, photo);
@@ -55,24 +56,33 @@ public class AuthService {
         // 3. Generate our application JWT token
         String jwtToken = jwtService.generateToken(user.getId());
 
-        return new AuthResponse(jwtToken, user.getId(), user.getUsername(), user.getEmail(), user.getPhoto(), user.getPremium());
+        return new AuthResponse(jwtToken, user.getId(), user.getUsername(), user.getEmail(), user.getPhoto(), user.getPremium(),
+                user.getLevel(), user.getXp(), user.getKeysCount(), user.getLastKeyRegenTime());
     }
 
+    @Transactional
     public User resolveUser(String userId) {
-        return userRepository.findById(userId)
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found: " + userId));
+        user.regenerateKeysIfNeeded();
+        return userRepository.save(user);
     }
 
     /**
      * Login with existing email - finds user by email and returns JWT.
      * Does NOT create a new account if the email is not found.
      */
+    @Transactional
     public AuthResponse loginByEmail(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Akun dengan email '" + email + "' tidak ditemukan. Silakan daftar terlebih dahulu."));
 
+        user.regenerateKeysIfNeeded();
+        user = userRepository.save(user);
+
         String jwtToken = jwtService.generateToken(user.getId());
-        return new AuthResponse(jwtToken, user.getId(), user.getUsername(), user.getEmail(), user.getPhoto(), user.getPremium());
+        return new AuthResponse(jwtToken, user.getId(), user.getUsername(), user.getEmail(), user.getPhoto(), user.getPremium(),
+                user.getLevel(), user.getXp(), user.getKeysCount(), user.getLastKeyRegenTime());
     }
 
     @Transactional

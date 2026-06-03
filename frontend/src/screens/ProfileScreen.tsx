@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuthStore } from '../store/authStore';
 import apiClient from '../services/api';
 
@@ -39,6 +40,52 @@ export default function ProfileScreen({ navigation }: any) {
   const [selectedAvatar, setSelectedAvatar] = useState(user?.photo || '');
   const [isUpdating, setIsUpdating] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
+
+  const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
+
+  const fetchProfile = async () => {
+    try {
+      const response = await apiClient.get('/auth/me');
+      updateUser(response.data);
+    } catch (err) {
+      console.warn('Gagal memuat profil terbaru', err);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchProfile();
+    }, [])
+  );
+
+  useEffect(() => {
+    if (!user || user.premium || (user.keysCount !== undefined && user.keysCount >= 10) || !user.lastKeyRegenTime) {
+      setSecondsRemaining(null);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const regenTime = new Date(user.lastKeyRegenTime!).getTime();
+      const now = new Date().getTime();
+      const elapsedSeconds = Math.max(0, (now - regenTime) / 1000);
+      const remaining = 60 - (Math.floor(elapsedSeconds) % 60);
+
+      if (remaining === 60) {
+        fetchProfile();
+      }
+
+      setSecondsRemaining(remaining);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [user?.keysCount, user?.lastKeyRegenTime, user?.premium]);
+
+  const formatCountdown = (sec: number | null) => {
+    if (sec === null) return '';
+    const minutes = Math.floor(sec / 60);
+    const seconds = sec % 60;
+    return `+2 🔑 dalam ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -234,6 +281,26 @@ export default function ProfileScreen({ navigation }: any) {
             <View style={styles.freeBadge}>
               <Text style={styles.freeBadgeText}>GUEST MEMBER</Text>
             </View>
+          )}
+
+          {/* Level & XP Info */}
+          <View style={styles.levelContainer}>
+            <Text style={styles.levelText}>Level {user?.level || 1}</Text>
+            <View style={styles.xpBarBackground}>
+              <View style={[styles.xpBarFill, { width: `${user?.xp || 0}%` }]} />
+            </View>
+            <Text style={styles.xpText}>{user?.xp || 0} / 100 XP</Text>
+          </View>
+
+          {/* Keys balance */}
+          <View style={styles.keysBalanceRow}>
+            <Ionicons name="key" size={16} color="#f59e0b" style={{ marginRight: 6 }} />
+            <Text style={styles.keysBalanceText}>
+              Kunci: {user?.premium ? 'Unlimited ♾️' : `${user?.keysCount ?? 10} / 10 🔑`}
+            </Text>
+          </View>
+          {secondsRemaining !== null && (
+            <Text style={styles.cooldownText}>{formatCountdown(secondsRemaining)}</Text>
           )}
 
           {/* User ID Badge */}
@@ -547,6 +614,51 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.5,
+  },
+  levelContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  levelText: {
+    color: '#6366f1',
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  xpBarBackground: {
+    width: '80%',
+    height: 8,
+    backgroundColor: '#1f2937',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+  xpBarFill: {
+    height: '100%',
+    backgroundColor: '#6366f1',
+    borderRadius: 4,
+  },
+  xpText: {
+    color: '#6b7280',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  keysBalanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  keysBalanceText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  cooldownText: {
+    color: '#f59e0b',
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 12,
   },
   idBadge: {
     backgroundColor: 'rgba(255, 255, 255, 0.03)',

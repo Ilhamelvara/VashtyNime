@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface UserProfile {
   id: string;
@@ -6,6 +8,10 @@ interface UserProfile {
   email: string;
   photo?: string;
   premium?: boolean;
+  level?: number;
+  xp?: number;
+  keysCount?: number;
+  lastKeyRegenTime?: string;
 }
 
 interface AuthState {
@@ -17,13 +23,21 @@ interface AuthState {
   updateUser: (updatedUser: Partial<UserProfile>) => void;
 }
 
-export const useAuthStore = create<AuthState>((set: any) => ({
-  user: null,
-  token: null,
-  isAuthenticated: false,
-  login: (user: UserProfile, token: string) => set({ user, token, isAuthenticated: true }),
-  logout: () => set({ user: null, token: null, isAuthenticated: false }),
-  updateUser: (updatedUser: Partial<UserProfile>) => set((state: any) => ({
-    user: state.user ? { ...state.user, ...updatedUser } : null
-  })),
-}));
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set: any): AuthState => ({
+      user: null as UserProfile | null,
+      token: null as string | null,
+      isAuthenticated: false,
+      login: (user: UserProfile, token: string) => set({ user, token, isAuthenticated: true }),
+      logout: () => set({ user: null, token: null, isAuthenticated: false }),
+      updateUser: (updatedUser: Partial<UserProfile>) => set((state: any) => ({
+        user: state.user ? { ...state.user, ...updatedUser } : null
+      })),
+    }),
+    {
+      name: 'vashtynime-auth-storage',
+      storage: createJSONStorage(() => AsyncStorage),
+    }
+  )
+);
